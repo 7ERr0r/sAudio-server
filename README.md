@@ -1,4 +1,3 @@
-# sAudio-server
 
 # Building
 go get github.com/southskies/golang-opus
