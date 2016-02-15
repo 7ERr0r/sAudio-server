@@ -11,12 +11,14 @@ type AudioServer struct {
 	bindaddr string
 	listener *net.UDPConn
 	addrclientmap map[string]*AudioClient
+	handlermap map[InnerHandler]bool
 	closec chan bool
 }
 func NewAudioServer(bindaddr string)(this *AudioServer){
 	this = new(AudioServer)
 	this.bindaddr = bindaddr
 	this.addrclientmap = make(map[string]*AudioClient)
+	this.handlermap = make(map[InnerHandler]bool)
 	this.closec = make(chan bool)
 	return
 }
@@ -48,6 +50,17 @@ func (this *AudioServer) Serve()(err error){
 
 
     return
+}
+func (this *AudioServer) Close(){
+	select {
+	case <-this.closec:
+		return
+	default:
+		this.listener.Close()
+		for _, client := range this.addrclientmap {
+			client.Close()
+		}
+	}
 }
 func (this *AudioServer) Ticker(){
 	ticker := time.NewTicker(1*time.Second)
@@ -89,16 +102,15 @@ func (this *AudioServer) WriteAudio(data []float32)(err error){
 		client.HandleBroadcast(broadcast)
 
 	}
+	for handler, _ := range this.handlermap {
+		handler.HandleAudio("todo", data)
+	}
 	return
 }
-func (this *AudioServer) Close(){
-	select {
-	case <-this.closec:
-		return
-	default:
-		this.listener.Close()
-		for _, client := range this.addrclientmap {
-			client.Close()
-		}
-	}
+
+func (this *AudioServer) RegisterHandler(innerhandler InnerHandler){
+	this.handlermap[innerhandler] = true
+}
+func (this *AudioServer) RemoveHandler(innerhandler InnerHandler){
+	delete(this.handlermap, innerhandler)
 }

@@ -14,6 +14,9 @@ type WebConnection struct {
     ipaddr string
     closec chan bool
     writec chan []byte
+
+    dumping bool
+    dumptick int
 }
 
 func NewWebConnection(server *WebServer, ws *websocket.Conn)(this *WebConnection){
@@ -108,6 +111,10 @@ func (this *WebConnection) HandleMessage(js map[string]interface{})(err error){
                 bc := map[string]interface{}{"action": "display","msg": msg}
                 this.server.BroadcastMessage(bc)
             }
+        case "startdump":
+            this.dumping = true
+        case "stopdump":
+            this.dumping = false
         }
     }else{
 
@@ -122,4 +129,16 @@ func (this *WebConnection) SendMessage(js interface{})(err error){
     }
     err = this.Write(payload)
     return
+}
+func (this *WebConnection) HandleDump(channel string, data []float32){
+    if this.dumptick % 8 == 0 {
+        if this.dumping {
+            dump := make([]float32, 64)
+            for i := 0; i<len(dump); i++ {
+                dump[i] = data[i*2]
+            }
+            this.SendMessage(map[string]interface{}{"action":"dump", "data":dump})
+        }
+    }
+    this.dumptick++
 }

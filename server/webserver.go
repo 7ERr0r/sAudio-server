@@ -22,7 +22,6 @@ type WebServer struct {
     connections map[*WebConnection]bool
     connectionsmutex *sync.RWMutex
 
-
 }
 
 func NewWebServer(bindaddr string, audioserver *AudioServer)(this *WebServer){
@@ -51,6 +50,10 @@ func (this *WebServer) Serve()(err error){
 	if err != nil {
 		return
 	}
+	err = this.Init()
+	if err != nil {
+		return
+	}
     log.Printf("Webserver listening on %s", this.httpserver.Addr)
     err = this.httpserver.Serve(this.listener)
     if err != nil {
@@ -58,7 +61,11 @@ func (this *WebServer) Serve()(err error){
     }
     return
 }
+func (this *WebServer) Init()(err error){
+	this.audioserver.RegisterHandler(this)
 
+	return
+}
 
 
 func (this *WebServer) AddConnection(conn *WebConnection){
@@ -93,4 +100,11 @@ func (this *WebServer) BroadcastMessage(js interface{}){
 func (this *WebServer) Close(){
 	this.listener.Close()
 
+}
+
+func (this *WebServer) HandleAudio(channel string, data []float32){
+	
+	for conn, _ := range this.connections {
+		conn.HandleDump(channel, data)
+	}
 }
