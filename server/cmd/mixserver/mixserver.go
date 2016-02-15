@@ -8,14 +8,31 @@ import (
 
 
 func main() {
-    bindaddr := flag.String("b", ":42381", "bind address")
+    audioaddr := flag.String("a", ":42381", "(udp) audio bind address")
+    webaddr := flag.String("w", ":42381", "(tcp) webserver bind address")
     flag.Parse()
-    audioserver := server.NewAudioServer(*bindaddr)
+    audioserver := server.NewAudioServer(*audioaddr)
+    webserver := server.NewWebServer(*webaddr, audioserver)
 
-    err := audioserver.Serve()
-    if err != nil {
-        log.Printf("Error: %s\n", err.Error())
-    }
+    errchan := make(chan error, 2)
+    go func(){
+        err := audioserver.Serve()
+        if err != nil {
+            log.Printf("Audio server error: %s", err.Error())
+        }
+        errchan <- err
+    }()
+    go func(){
+        err := webserver.Serve()
+        if err != nil {
+            log.Printf("Web server error: %s", err.Error())
+        }
+        errchan <- err
+    }()
+    err := <-errchan
+    log.Printf("Closing both servers: %s", err.Error())
+    audioserver.Close()
+    webserver.Close()
 
 
     

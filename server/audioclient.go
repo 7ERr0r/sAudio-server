@@ -24,7 +24,7 @@ func NewAudioClient(server *AudioServer, addr *net.UDPAddr)(this *AudioClient){
 }
 
 func (this *AudioClient) Log(str string){
-	log.Printf("[%s]: %s", this.addr, str)
+	log.Printf("[audio%s]: %s", this.addr, str)
 }
 func (this *AudioClient) Logf(str string, a ...interface{}){
     this.Log(fmt.Sprintf(str, a...))

@@ -4,18 +4,20 @@ import (
 	"net"
 	"fmt"
 	"time"
+	"log"
 )
 
 type AudioServer struct {
 	bindaddr string
 	listener *net.UDPConn
 	addrclientmap map[string]*AudioClient
-
+	closec chan bool
 }
 func NewAudioServer(bindaddr string)(this *AudioServer){
 	this = new(AudioServer)
 	this.bindaddr = bindaddr
 	this.addrclientmap = make(map[string]*AudioClient)
+	this.closec = make(chan bool)
 	return
 }
 func (this *AudioServer) Serve()(err error){
@@ -27,7 +29,7 @@ func (this *AudioServer) Serve()(err error){
     if err != nil {
         return
     }
-    defer this.listener.Close()
+    log.Printf("Audioserver listening on %s", listenaddr)
     go this.Ticker()
     var addr *net.UDPAddr
     var n int
@@ -88,4 +90,15 @@ func (this *AudioServer) WriteAudio(data []float32)(err error){
 
 	}
 	return
+}
+func (this *AudioServer) Close(){
+	select {
+	case <-this.closec:
+		return
+	default:
+		this.listener.Close()
+		for _, client := range this.addrclientmap {
+			client.Close()
+		}
+	}
 }
