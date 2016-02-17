@@ -49,6 +49,6 @@ func (this *InputHandler) Receive(data []byte)(err error){
 	}
 	//this.sess.Logf("n: %d, fs: %d", n, FRAME_SIZE)
 	//this.outputc <- rawdata[:n]
-	this.sess.server.WriteAudio(rawdata)
+	this.sess.WriteAudioToChannel(rawdata)
 	return
 }

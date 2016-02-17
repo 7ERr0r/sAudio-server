@@ -102,9 +102,14 @@ func (this *WebServer) Close(){
 
 }
 
-func (this *WebServer) HandleAudio(channel string, data []float32){
-	
+func (this *WebServer) HandleAudio(channel *Channel, data []float32){
 	for conn, _ := range this.connections {
 		conn.HandleDump(channel, data)
 	}
+}
+
+func (this *WebServer) HandleEvent(event Event){
+    for conn, _ := range this.connections {
+        conn.HandleEvent(event)
+    }
 }

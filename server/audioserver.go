@@ -12,6 +12,7 @@ type AudioServer struct {
 	listener *net.UDPConn
 	addrclientmap map[string]*AudioClient
 	handlermap map[InnerHandler]bool
+	channelmap map[string]*Channel
 	closec chan bool
 }
 func NewAudioServer(bindaddr string)(this *AudioServer){
@@ -19,7 +20,10 @@ func NewAudioServer(bindaddr string)(this *AudioServer){
 	this.bindaddr = bindaddr
 	this.addrclientmap = make(map[string]*AudioClient)
 	this.handlermap = make(map[InnerHandler]bool)
+	this.channelmap = make(map[string]*Channel)
 	this.closec = make(chan bool)
+
+	this.CreateChannel("default")
 	return
 }
 func (this *AudioServer) Serve()(err error){
@@ -41,7 +45,7 @@ func (this *AudioServer) Serve()(err error){
     	if err != nil {
     		return
     	}
-    	err = this.HandleData(buf[:n], addr)
+    	this.HandleData(buf[:n], addr)
     	if err != nil {
     		err = fmt.Errorf("handling data: %s", err.Error())
     		return
@@ -82,30 +86,31 @@ func (this *AudioServer) AddClient(client *AudioClient){
 func (this *AudioServer) RemoveClient(client *AudioClient){
 	delete(this.addrclientmap, AddrString(client.addr))
 }
-func (this *AudioServer) HandleData(data []byte, addr *net.UDPAddr)(err error){
+func (this *AudioServer) HandleData(data []byte, addr *net.UDPAddr){
 	var client *AudioClient
 	var ok bool
     if client, ok = this.addrclientmap[AddrString(addr)]; !ok {
 		client = NewAudioClient(this, addr)
 		this.AddClient(client)
-   		
+   		client.SetChannel(this.channelmap["default"])
     }
-    err = client.Receive(data)
+    err := client.Receive(data)
+    if err != nil {
+    	client.Logf("Error receiving data: %s", err.Error())
+    }
     return
 }
-func (this *AudioServer) WriteAudio(data []float32)(err error){
-	broadcast := make([]float32, len(data))
-	copy(broadcast, data)
-	// Now you will ask: WHY DO YOU COPY THE WHOLE ARRAY?
-	// Because audio reader and writer below are in another gouroutines (threads)
-	for _, client := range this.addrclientmap {
-		client.HandleBroadcast(broadcast)
-
-	}
+func (this *AudioServer) HandleChannelAudio(channel *Channel, data []float32)(err error){
 	for handler, _ := range this.handlermap {
-		handler.HandleAudio("todo", data)
+		handler.HandleAudio(channel, data)
 	}
 	return
+}
+
+func (this *AudioServer) CallEvent(event Event){
+	for handler, _ := range this.handlermap {
+		handler.HandleEvent(event)
+	}
 }
 
 func (this *AudioServer) RegisterHandler(innerhandler InnerHandler){
@@ -113,4 +118,7 @@ func (this *AudioServer) RegisterHandler(innerhandler InnerHandler){
 }
 func (this *AudioServer) RemoveHandler(innerhandler InnerHandler){
 	delete(this.handlermap, innerhandler)
+}
+func (this *AudioServer) CreateChannel(name string){
+	this.channelmap[name] = NewChannel(this, name)
 }

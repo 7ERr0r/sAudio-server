@@ -1,7 +1,7 @@
 package server
 
 type InnerHandler interface {
-	HandleAudio(string, []float32)
-	
+	HandleAudio(*Channel, []float32)
+	HandleEvent(Event)
 
 }

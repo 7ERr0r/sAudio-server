@@ -12,6 +12,7 @@ type AudioClient struct {
 	closec chan bool
 	ticksfromlastpacket int
 	handler ClientHandler
+	channel *Channel
 }
 
 func NewAudioClient(server *AudioServer, addr *net.UDPAddr)(this *AudioClient){
@@ -39,6 +40,7 @@ func (this *AudioClient) Receive(data []byte)(err error){
 			this.InitInput()
 		}else{
 			this.Logf("unrecognized packet: %s", data)
+			this.InitInput()
 		}
 	}else{
 		err = this.handler.Receive(data)
@@ -47,6 +49,7 @@ func (this *AudioClient) Receive(data []byte)(err error){
 }
 func (this *AudioClient) InitOutput(){
 	this.handler = NewOutputHandler(this)
+	go this.server.CallEvent(ClientUpdateEvent{this})
 	go func(){
 		err := this.handler.Serve()
 		if err != nil {
@@ -57,6 +60,7 @@ func (this *AudioClient) InitOutput(){
 }
 func (this *AudioClient) InitInput(){
 	this.handler = NewInputHandler(this)
+	go this.server.CallEvent(ClientUpdateEvent{this})
 	go func(){
 		err := this.handler.Serve()
 		if err != nil {
@@ -78,6 +82,7 @@ func (this *AudioClient) Close(){
 	default:
 		close(this.closec)
 		this.server.RemoveClient(this)
+		this.SetChannel(nil)
 		this.Log("Closed")
 	}
 }
@@ -103,5 +108,35 @@ func (this *AudioClient) HandleBroadcast(data []float32){
 	if outputhandler, ok := this.handler.(*OutputHandler); ok {
 		outputhandler.HandleBroadcast(data)
 	}
+}
+
+func (this *AudioClient) SetChannel(channel *Channel){
+	if this.channel != nil {
+		this.channel.RemoveClient(this)
+	}
+	this.channel = channel
+	if channel != nil {
+		channel.AddClient(this)
+	}
+	
+
+}
+
+func (this *AudioClient) WriteAudioToChannel(data []float32){
+	if this.channel != nil {
+		this.channel.WriteAudio(data)
+	}
+}
+func (this *AudioClient) String()(str string){
+	str = this.addr.String()
+	str += " "
+	if _, ok := this.handler.(*InputHandler); ok {
+		str += "InputHandler"
+	}else if _, ok := this.handler.(*OutputHandler); ok {
+		str += "OutputHandler"
+	}else{
+		str += "undefined"
+	}
+	return
 }
 
